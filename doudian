@@ -1,0 +1,45 @@
+import json
+
+
+import scrapy
+
+
+class DoudianSpider(scrapy.Spider):
+    name = "doudian"
+    allowed_domains = ["www.biocomma.cn"]
+    start_urls = ["http://www.biocomma.cn"]
+
+    def parse(self, response):
+        container = []
+        bod = []
+        full_url = lambda x: x if x.startswith('http') else f"http://wwwbiocomma.cn{x}"
+
+        for li_node in response.xpath('//ul[@class="tab tab1"]/li'):
+            cat = {}
+            base_category = li_node.xpath('normalize-space(string(./a))').get()
+            if '服务' in base_category: continue
+            if sub_ul_node := li_node.xpath('./ul[@class="tab tab2"]'):
+                for sub_li_node in sub_ul_node.xpath('./li'):
+                    sub_category = sub_li_node.xpath('normalize-space(string(./a))').get()
+                    if deep_sub_ul_node := sub_li_node.xpath('./ul'):
+                        for deep_sub_li_node in deep_sub_ul_node.xpath('./li'):
+                            deep_sub_category = deep_sub_li_node.xpath('normalize-space(string(./a))').get()
+                            cat |= {'category': '>>'.join([base_category, sub_category, deep_sub_category]),
+                                    'url': full_url(sub_li_node.xpath('./a/@href').get())}
+
+                        print(cat)
+
+                    else:
+                        cat |= {'category': '>>'.join([base_category, sub_category]),
+                                'url': full_url(sub_li_node.xpath('./a/@href').get())}
+            else:
+                cat |= {'category': base_category, 'url': full_url(sub_li_node.xpath('./a/@href').get())}
+            if cat:
+                container.append(cat)
+
+
+        # print(container)
+        with open("doudain_category.json", "wb") as d:
+            json.dump(container, d, indent=4)
+
+
