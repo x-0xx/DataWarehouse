@@ -1,0 +1,63 @@
+import json
+
+import scrapy
+
+
+class DoudianSpider(scrapy.Spider):
+    name = "doudian"
+    allowed_domains = ["www.biocomma.cn"]
+    start_urls = ["http://www.biocomma.cn"]
+
+    def parse(self, response):
+        container = []
+        bod = []
+        full_url = lambda x: x if x.startswith('http') else f"http://www.biocomma.cn{x}"
+        i = 1
+        for li_node in response.xpath('//ul[@class="tab tab1"]/li'):
+            cat = {}
+            x = ""
+            y = ""
+            base_category = li_node.xpath('normalize-space(string(./a))').get()#第一个节点
+            if '服务' in base_category: continue
+            if sub_ul_node := li_node.xpath('./ul'):
+                for sub_li_node in sub_ul_node.xpath('./li'):
+                    sub_category = sub_li_node.xpath('normalize-space(string(./a))').get()#第二个节点
+                    if sub_li_node.xpath('./ul[@class = "tab details"]'):
+                        if deep_sub_ul_node := sub_li_node.xpath('./ul'):
+                            for deep_sub_li_node in deep_sub_ul_node.xpath('./li'):
+                                deep_sub_category = deep_sub_li_node.xpath('normalize-space(string(./a))').get()#第三层
+                                if deep_sub_category == x:
+                                    continue
+                                cat |= {f'category{i}': '>>'.join([base_category, sub_category, deep_sub_category]),
+                                        f'url{i}': full_url(deep_sub_li_node.xpath('./a/@href').get())}
+
+                                x = deep_sub_category
+
+                        else:
+                            if sub_category == y:
+                                continue
+
+                            cat |= {f'category{i}': '>>'.join([base_category, sub_category]),
+                                    f'url{i}': full_url(sub_li_node.xpath('./a/@href').get())}
+                            i += 1
+                            y = sub_category
+
+                    else:
+
+                        if sub_category == y:
+                            continue
+
+                        cat |= {f'category{i}': '>>'.join([base_category, sub_category]),
+                                f'url{i}': full_url(sub_li_node.xpath('./a/@href').get())}
+                        i += 1
+                        y = sub_category
+            else:
+                cat |= {f'category{i}': base_category, f'url{i}': full_url(li_node.xpath('./a/@href').get())}
+                i += 1
+            if cat:
+                container.append(cat)
+
+        print(container)
+        with open("doudain_category.json", "w", encoding='utf-8') as d:
+            json.dump(container, d, ensure_ascii=False, indent=4)
+
