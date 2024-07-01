@@ -1,0 +1,50 @@
+import json
+
+import pymongo
+import requests
+from pymongo import MongoClient
+
+from pymongo import MongoClient
+
+
+class MongoDBConn:
+    client = ""
+    collection = ""
+
+    def __init__(self, host, port, db_name, user, password):
+        """
+        建立数据库连接
+        """
+
+        self.client = pymongo.MongoClient(host, port, user, password)
+        self.mydb = self.client[db_name]
+        self.collection = self.mydb["parse_test"]
+
+    def insert(self, it_data):
+        self.collection.insert_one(it_data)
+        self.client.close()
+
+
+head = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+}
+
+x = "669"
+
+mongoDB = MongoDBConn('deepbio.tpddns.cn', 37000, 'products_source', 'data_user', '123456')
+
+with open("product_info.json", "r", encoding="utf-8") as p:
+    lis = eval(p.read())
+    for x in lis:
+        response = requests.get(x["url"], headers=head).text
+        data = {
+            'url': x["url"],
+            'path': x["path"],
+            'product_name': x["product_name"],
+            'product_detail': dict(x).get("product_detail", "无"),
+            'product_features': dict(x).get("产品特点：", "无"),
+            'order_info': dict(x).get("order_info", "无"),
+            'response': response
+        }
+        mongoDB.insert(data)
+
